@@ -8,6 +8,16 @@ export default defineConfig({
   base: '/learn-claude-code',
   integrations: [
     starlight({
+      head: [
+        {
+          tag: 'script',
+          attrs: { async: true, src: 'https://www.googletagmanager.com/gtag/js?id=G-69XQE497LM' },
+        },
+        {
+          tag: 'script',
+          content: `window.dataLayer = window.dataLayer || [];\nfunction gtag(){dataLayer.push(arguments);}\ngtag('js', new Date());\ngtag('config', 'G-69XQE497LM');`,
+        },
+      ],
       title: 'Claude Code 소스 코드 Deep Dive',
       defaultLocale: 'root',
       locales: {
