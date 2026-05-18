@@ -35,7 +35,10 @@ export default defineConfig({
         { label: '09. SDK와 프로그래매틱 사용', autogenerate: { directory: '09-sdk-programmatic' } },
         { label: '10. 미공개 기능과 전체 조망', autogenerate: { directory: '10-unreleased-bigpicture' } },
       ],
-      customCss: ['./src/styles/custom.css'],
+      social: [
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/reserve/learn-claude-code' },
+      ],
+      customCss: ['./src/styles/global.css', './src/styles/custom.css'],
     }),
     react(),
   ],
