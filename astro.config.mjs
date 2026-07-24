@@ -4,7 +4,7 @@ import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  site: 'https://reserve.github.io',
+  site: 'https://9bow.github.io',
   base: '/learn-claude-code',
   integrations: [
     starlight({
@@ -36,7 +36,7 @@ export default defineConfig({
         { label: '10. 미공개 기능과 전체 조망', autogenerate: { directory: '10-unreleased-bigpicture' } },
       ],
       social: [
-        { icon: 'github', label: 'GitHub', href: 'https://github.com/reserve/learn-claude-code' },
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/9bow/learn-claude-code' },
       ],
       customCss: ['./src/styles/global.css', './src/styles/custom.css'],
     }),

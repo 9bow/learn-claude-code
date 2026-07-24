@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 
 interface QuizQuestion {
   id: string;
@@ -6,6 +6,70 @@ interface QuizQuestion {
   options: string[];
   answer: number;
   explanation: string;
+}
+
+interface QuizPayload {
+  questions: QuizQuestion[];
+}
+
+function renderInline(text: string, keyOffset: number): ReactNode[] {
+  const parts: ReactNode[] = [];
+  const inlineCodeRegex = /`([^`]+)`/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = inlineCodeRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      const plain = text.slice(lastIndex, match.index);
+      parts.push(
+        <span key={`text-${keyOffset}-${parts.length}`}>
+          {plain.split('\n').flatMap((line, index, lines) =>
+            index < lines.length - 1
+              ? [line, <br key={`br-${keyOffset}-${parts.length}-${index}`} />]
+              : [line]
+          )}
+        </span>
+      );
+    }
+    parts.push(<code key={`inline-${keyOffset}-${parts.length}`}>{match[1]}</code>);
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    const plain = text.slice(lastIndex);
+    parts.push(
+      <span key={`text-${keyOffset}-${parts.length}`}>
+        {plain.split('\n').flatMap((line, index, lines) =>
+          index < lines.length - 1
+            ? [line, <br key={`br-${keyOffset}-${parts.length}-${index}`} />]
+            : [line]
+        )}
+      </span>
+    );
+  }
+  return parts;
+}
+
+function renderText(text: string): ReactNode[] {
+  const parts: ReactNode[] = [];
+  const codeBlockRegex = /```(?:\w+)?\n([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(...renderInline(text.slice(lastIndex, match.index), parts.length));
+    }
+    parts.push(
+      <pre key={`code-${parts.length}`}>
+        <code>{match[1]}</code>
+      </pre>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    parts.push(...renderInline(text.slice(lastIndex), parts.length));
+  }
+  return parts;
 }
 
 export default function Quiz({ section }: { section: string }) {
@@ -19,7 +83,9 @@ export default function Quiz({ section }: { section: string }) {
   useEffect(() => {
     fetch(`${import.meta.env.BASE_URL}data/quiz/${section}.json`)
       .then((r) => r.json())
-      .then(setQuestions)
+      .then((data: QuizQuestion[] | QuizPayload) => {
+        setQuestions(Array.isArray(data) ? data : data.questions);
+      })
       .catch(() => setQuestions([]));
   }, [section]);
 
@@ -54,7 +120,7 @@ export default function Quiz({ section }: { section: string }) {
       <p style={{ color: 'var(--sl-color-gray-3)', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
         {current + 1} / {questions.length}
       </p>
-      <h4 style={{ margin: '0 0 1rem 0', color: 'var(--sl-color-white)' }}>{q.question}</h4>
+      <h4 style={{ margin: '0 0 1rem 0', color: 'var(--sl-color-white)' }}>{renderText(q.question)}</h4>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         {q.options.map((opt, i) => {
           let bg = 'var(--sl-color-gray-6)';
@@ -68,14 +134,14 @@ export default function Quiz({ section }: { section: string }) {
               onClick={() => { if (!showResult) setSelected(i); }}
               style={{ padding: '0.75rem 1rem', background: bg, color: 'var(--sl-color-white)', border: '1px solid var(--sl-color-gray-5)', borderRadius: '0.375rem', cursor: showResult ? 'default' : 'pointer', textAlign: 'left', transition: 'background 0.2s' }}
             >
-              {opt}
+              {renderText(opt)}
             </button>
           );
         })}
       </div>
       {showResult && (
         <p style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--sl-color-gray-6)', borderRadius: '0.375rem', color: 'var(--sl-color-gray-2)', fontSize: '0.9rem' }}>
-          {q.explanation}
+          {renderText(q.explanation)}
         </p>
       )}
       <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>

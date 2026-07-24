@@ -4,13 +4,14 @@ description: "Model Context Protocol의 개념, 전송 타입, 권한 게이팅,
 sidebar:
   order: 1
 learning_objectives:
-  - "MCP의 세 가지 전송 타입(stdio, HTTP, SSE)의 차이와 사용 사례를 설명할 수 있다"
+  - "MCP의 stdio, HTTP, SSE, WebSocket 전송과 권장 사용 사례를 설명할 수 있다"
   - "도구 네이밍 규칙(mcp__서버명__도구명)을 이해하고 적용할 수 있다"
   - "권한 게이팅 메커니즘과 /mcp 명령어로 런타임 관리하는 방법을 안다"
 estimated_minutes: 25
 references:
   - title: "MCP 문서"
-    url: "https://docs.anthropic.com/ko/docs/claude-code/mcp"
+    url: "https://code.claude.com/docs/en/mcp"
+    accessed: "2026-07-24"
   - title: "Claude Code 컨텍스트 관리"
     url: "https://modelcontextprotocol.io"
 ---
@@ -41,13 +42,14 @@ mcp__slack__send_message
 
 이 네이밍 규칙 덕분에 내장 도구와 MCP 도구를 명확히 구분할 수 있으며, 권한 설정에서도 MCP 도구만 선택적으로 제어할 수 있습니다.
 
-## 세 가지 전송 타입
+## 전송 타입
 
 | 전송 타입 | 설명 | 사용 사례 |
 |-----------|------|-----------|
 | **stdio** | 로컬 프로세스와 표준 입출력으로 통신 | 로컬 CLI 도구, 가장 일반적 |
-| **HTTP** | 원격 서버에 HTTP POST 요청 | 클라우드 서비스, API 게이트웨이 |
-| **SSE** | Server-Sent Events, 단방향 스트림 | 실시간 데이터, 이벤트 스트림 |
+| **HTTP** | 원격 Streamable HTTP 서버 | 클라우드 서비스의 권장 전송 |
+| **SSE** | 기존 원격 서버 전송 | 폐기 예정, 가능한 경우 HTTP로 이전 |
+| **WebSocket** | 지속적인 양방향 연결 | 서버가 세션으로 외부 이벤트를 밀어 넣는 경우 |
 
 ```json
 // stdio 서버 예시 (로컬 프로세스)
@@ -101,7 +103,7 @@ MCP 도구는 기본적으로 **실행 전 사용자 승인**이 필요합니다
 claude mcp add filesystem -- npx -y @modelcontextprotocol/server-filesystem /home
 
 # HTTP 서버 추가
-claude mcp add my-api --type http --url https://mcp.example.com
+claude mcp add --transport http my-api https://mcp.example.com/mcp
 
 # 서버 목록 확인
 claude mcp list
@@ -112,13 +114,6 @@ claude mcp remove filesystem
 
 ## 런타임 관리
 
-실행 중에도 `/mcp` 명령어로 서버를 관리할 수 있습니다.
+실행 중에는 `/mcp` 패널에서 연결 상태와 도구 수를 확인하고 원격 서버의 OAuth 인증을 진행할 수 있습니다. CLI에서는 `claude mcp list`, `claude mcp get <name>`, `claude mcp remove <name>`으로 구성을 관리합니다. 원격 서버가 끊기면 Claude Code는 제한된 횟수의 지수 백오프로 재연결을 시도합니다.
 
-| 명령어 | 설명 |
-|--------|------|
-| `/mcp` | 연결된 서버 상태 확인 |
-| `/mcp enable <서버명>` | 서버 활성화 |
-| `/mcp disable <서버명>` | 서버 비활성화 |
-| `/mcp reconnect <서버명>` | 서버 재연결 |
-
-공식 MCP 서버 레지스트리는 `modelcontextprotocol.io`에서 확인할 수 있으며, 수백 개의 커뮤니티 서버가 등록되어 있습니다.
+외부 서버는 읽어 온 콘텐츠를 통해 프롬프트 인젝션을 전달할 수 있습니다. Anthropic Directory의 검토된 커넥터를 포함해, 연결 전에 운영 주체·권한 범위·데이터 처리 정책을 직접 확인해야 합니다.

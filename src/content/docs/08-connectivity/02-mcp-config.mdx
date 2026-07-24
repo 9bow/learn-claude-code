@@ -1,16 +1,17 @@
 ---
 title: "MCP 서버 설정"
-description: "MCP 서버의 세 가지 스코프, stdio/HTTP/SSE 설정 방법, 환경 변수 확장 구문을 학습합니다."
+description: "MCP 서버의 세 가지 스코프, stdio/HTTP 설정 방법, 환경 변수 확장 구문을 학습합니다."
 sidebar:
   order: 2
 learning_objectives:
   - "project/user/local 세 가지 MCP 설정 스코프의 차이를 설명할 수 있다"
-  - "stdio와 HTTP/SSE 서버의 설정 필드 구조를 작성할 수 있다"
-  - "환경 변수 확장 구문($VAR, ${VAR})을 활용한 안전한 설정 관리를 할 수 있다"
+  - "stdio와 HTTP 서버의 설정 필드 구조를 작성하고 SSE가 폐기 예정임을 설명할 수 있다"
+  - "환경 변수 확장 구문(${VAR}, ${VAR:-default})을 활용한 안전한 설정 관리를 할 수 있다"
 estimated_minutes: 25
 references:
   - title: "MCP 문서"
-    url: "https://docs.anthropic.com/ko/docs/claude-code/mcp"
+    url: "https://code.claude.com/docs/en/mcp"
+    accessed: "2026-07-24"
   - title: "Claude Code 컨텍스트 관리"
     url: "https://modelcontextprotocol.io"
 ---
@@ -23,7 +24,7 @@ MCP 서버는 **목적에 따라 세 가지 위치**에 설정할 수 있습니�
 |--------|-----------|-----------|------|
 | **project** | `.mcp.json` | 팀 공유 (Git 포함) | 프로젝트 공통 서버 |
 | **user** | `~/.claude.json` | 개인 전역 | 모든 프로젝트에서 사용 |
-| **local** | `.claude/settings.local.json` | 개인 로컬 | 개인 오버라이드 |
+| **local** | `~/.claude.json` | 개인 로컬 | 현재 프로젝트에서만 사용, 기본 스코프 |
 
 ```json
 // .mcp.json (프로젝트 공유 - Git에 커밋)
@@ -75,9 +76,9 @@ MCP 서버는 **목적에 따라 세 가지 위치**에 설정할 수 있습니�
 | `args` | 아니오 | 명령어 인수 배열 |
 | `env` | 아니오 | 추가 환경 변수 |
 
-## HTTP/SSE 서버 설정
+## 원격 HTTP 서버 설정
 
-원격 MCP 서버에 연결할 때 사용합니다.
+원격 MCP 서버에는 Streamable HTTP를 우선 사용합니다. SSE 전송은 폐기 예정이므로 기존 서비스와의 호환이 필요한 경우에만 유지합니다.
 
 ```json
 {
@@ -89,13 +90,6 @@ MCP 서버는 **목적에 따라 세 가지 위치**에 설정할 수 있습니�
         "Authorization": "Bearer ${SERVICE_TOKEN}",
         "X-Team-ID": "${TEAM_ID}"
       }
-    },
-    "event-stream": {
-      "type": "sse",
-      "url": "https://events.myservice.com/mcp/sse",
-      "headers": {
-        "Authorization": "Bearer ${SSE_TOKEN}"
-      }
     }
   }
 }
@@ -103,13 +97,13 @@ MCP 서버는 **목적에 따라 세 가지 위치**에 설정할 수 있습니�
 
 | 필드 | 설명 |
 |------|------|
-| `type` | `http` 또는 `sse` |
+| `type` | 원격 권장값 `http` (`streamable-http`도 별칭으로 허용) |
 | `url` | 서버 엔드포인트 URL |
 | `headers` | HTTP 요청 헤더 |
 
 ## 환경 변수 확장
 
-설정 파일에서 **`$VAR` 또는 `${VAR}` 구문**으로 환경 변수를 참조할 수 있습니다. 이 값들은 Claude Code **시작 시** 셸 환경에서 확장됩니다.
+설정 파일에서 **`${VAR}` 또는 `${VAR:-default}` 구문**으로 환경 변수를 참조할 수 있습니다. 이 값들은 Claude Code **시작 시** 셸 환경에서 확장됩니다.
 
 ```json
 {
@@ -119,7 +113,7 @@ MCP 서버는 **목적에 따라 세 가지 위치**에 설정할 수 있습니�
       "args": ["./mcp-db-server.js"],
       "env": {
         "DB_HOST": "${DB_HOST}",
-        "DB_PORT": "$DB_PORT",
+        "DB_PORT": "${DB_PORT}",
         "DB_NAME": "${DB_NAME:-myapp}",
         "DB_PASSWORD": "${DB_PASSWORD}"
       }
@@ -141,23 +135,23 @@ MCP 서버는 **목적에 따라 세 가지 위치**에 설정할 수 있습니�
   }
 }
 
-// PostgreSQL 데이터베이스
+// 팀이 직접 유지하는 PostgreSQL MCP 서버
 {
   "postgres": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-postgres"],
+    "command": "node",
+    "args": ["./tools/postgres-mcp/dist/server.js"],
     "env": { "POSTGRES_URL": "${DATABASE_URL}" }
   }
 }
 
-// GitHub 통합
+// 원격 HTTP 통합
 {
-  "github": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-github"],
-    "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}" }
+  "issue-tracker": {
+    "type": "http",
+    "url": "https://mcp.example.com/mcp",
+    "headers": { "Authorization": "Bearer ${MCP_TOKEN}" }
   }
 }
 ```
 
-공식 서버 패키지들은 `npm` 패키지로 배포되어 `npx -y`로 즉시 실행할 수 있습니다. 사용 가능한 공식 서버 목록은 `modelcontextprotocol.io/servers`에서 확인하세요.
+서드파티 패키지를 `npx -y`로 실행하면 설치 시점의 코드를 바로 실행하게 됩니다. 패키지 소유자와 소스, 버전을 검토하고 프로덕션에서는 버전 고정과 최소 권한을 적용하세요. 검토된 원격 커넥터는 Anthropic Directory에서 찾을 수 있지만, 최종 신뢰 판단과 권한 검토는 사용자의 책임입니다.
