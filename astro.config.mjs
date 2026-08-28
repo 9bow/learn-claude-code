@@ -18,7 +18,7 @@ export default defineConfig({
           content: `window.dataLayer = window.dataLayer || [];\nfunction gtag(){dataLayer.push(arguments);}\ngtag('js', new Date());\ngtag('config', 'G-69XQE497LM');`,
         },
       ],
-      title: 'Claude Code 소스 코드 Deep Dive',
+      title: 'Claude Code 공개 기능 Deep Dive',
       defaultLocale: 'root',
       locales: {
         root: { label: '한국어', lang: 'ko' },
@@ -33,7 +33,7 @@ export default defineConfig({
         { label: '07. 인프라스트럭처', autogenerate: { directory: '07-infrastructure' } },
         { label: '08. 연결성과 확장', autogenerate: { directory: '08-connectivity' } },
         { label: '09. SDK와 프로그래매틱 사용', autogenerate: { directory: '09-sdk-programmatic' } },
-        { label: '10. 미공개 기능과 전체 조망', autogenerate: { directory: '10-unreleased-bigpicture' } },
+        { label: '10. 공개 기능과 전체 조망', autogenerate: { directory: '10-unreleased-bigpicture' } },
       ],
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/9bow/learn-claude-code' },

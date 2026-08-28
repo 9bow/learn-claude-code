@@ -1,11 +1,11 @@
-# Claude Code 소스 코드 Deep Dive
+# Claude Code 공개 기능 Deep Dive
 
-Claude Code의 내부 아키텍처를 소스 코드 관점에서 분석하는 한국어 학습 사이트입니다. 부팅 시퀀스, 도구 시스템, 에이전트 실행, 권한, 메모리, UI, 인프라, MCP, SDK, 미공개 기능까지 구조적으로 정리합니다.
+Claude Code의 공개 문서와 CLI를 기준으로 도구 시스템, 에이전트 실행, 권한, 메모리, UI, MCP, Agent SDK를 구조적으로 학습하는 한국어 사이트입니다. 내부 구현으로 추정한 이름이나 문서화되지 않은 API는 사용법으로 다루지 않습니다.
 
 ## 대상
 
-- Claude Code가 실제로 어떻게 부팅되고 에이전틱 루프를 실행하는지 알고 싶은 개발자
-- 도구 호출, 권한, 메모리, 컨텍스트 조립, UI 렌더링 구조를 코드 수준에서 이해하려는 사용자
+- Claude Code의 공개 기능과 안전한 작업 흐름을 이해하려는 개발자
+- 도구 호출, 권한, 메모리, 컨텍스트, 확장 기능을 운영 관점에서 이해하려는 사용자
 - 코딩 에이전트나 개발자 도구를 직접 설계하려는 엔지니어
 
 ## 구성
@@ -26,7 +26,7 @@ Claude Code의 내부 아키텍처를 소스 코드 관점에서 분석하는 �
 7. 인프라스트럭처: config, hooks, skills, sessions, plugins, error handling
 8. 연결성과 확장: MCP overview/config, OAuth, Git integration, bridge/remote
 9. SDK와 프로그래매틱 사용: SDK architecture, control protocol, TypeScript API, IDE/CI/CD
-10. 미공개 기능과 전체 조망: model system, BUDDY, KAIROS, ULTRAPLAN, desktop entrypoints, synthesis
+10. 공개 기능과 전체 조망: 모델 선택, agent teams, Plan mode, 공식 진입점, 운영 원칙
 
 ## 로컬 개발
 
@@ -47,9 +47,9 @@ pnpm build
 
 ## 콘텐츠 품질 기준
 
-- 소스 코드 분석은 함수명이나 내부 구현 단서와 사용자 관점의 동작을 함께 연결합니다.
-- 미공개 또는 변동 가능성이 큰 기능은 확정된 공개 API처럼 서술하지 않고, 관찰된 구조와 추정 범위를 구분합니다.
-- 도구, 권한, MCP, SDK 설명은 실제 개발자 도구 설계에 재사용할 수 있는 구조적 원칙으로 정리합니다.
+- 기능 설명은 Anthropic의 공개 문서와 현재 CLI 레퍼런스를 우선합니다.
+- 실험 기능은 공개 상태와 알려진 제한을 함께 적고, 문서화되지 않은 이름·플래그·패키지를 사용법으로 제시하지 않습니다.
+- 도구, 권한, MCP, skills, hooks, Agent SDK 설명은 최소 권한·검증·감사 원칙과 함께 정리합니다.
 
 ## 주요 경로
 

@@ -57,14 +57,10 @@ git status
 다음 경우에는 Git 컨텍스트 수집을 건너뜁니다.
 
 ```bash
-# 원격 환경 플래그
-CLAUDE_CODE_REMOTE=1 claude
-
-# Git 지시사항 비활성화 플래그
-CLAUDE_CODE_NO_GIT=1 claude
+문서화되지 않은 환경 변수를 Git 컨텍스트 제어용 설정으로 가정하지 않습니다. 원격에서 세션을 이어야 한다면 Remote Control의 공개 흐름을 사용하고, 컨텍스트 범위는 프로젝트 지시사항·권한·현재 CLI 문서로 검토합니다.
 ```
 
-Git이 설치되지 않은 환경이거나, Git 정보가 필요 없는 문서 작업 등에서 활용합니다.
+Git이 설치되지 않은 환경이거나 Git 정보가 필요 없는 문서 작업에서는, 실제 실행 전 `claude --help`와 공식 CLI 문서로 지원되는 옵션을 확인합니다.
 
 ## getUserContext()
 

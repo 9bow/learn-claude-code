@@ -1,139 +1,58 @@
 ---
-title: "에러 핸들링과 분석"
-description: "Claude Code의 에러 처리 전략, PostToolUseFailure 훅, 토큰 사용량과 비용 분석 메커니즘을 학습합니다."
+title: "에러 처리와 관측"
+description: "hooks, result 메시지, 비용·사용량 관측을 공개 문서 기준으로 안전하게 구성합니다."
 sidebar:
   order: 6
 learning_objectives:
-  - "도구 실행 실패 시 tool_result에 에러가 포함되는 방식을 설명할 수 있다"
-  - "result 메시지의 구조(success/error, 비용, 기간)를 파악할 수 있다"
-  - "get_context_usage로 컨텍스트 윈도우 사용량을 분석하는 방법을 안다"
+  - "도구 실패와 에이전트 작업 실패를 구분해 기록할 수 있다"
+  - "공개 hook 이벤트로 실패 후 처리 흐름을 설계할 수 있다"
+  - "비용·사용량 지표를 고정 수치가 아닌 운영 관측으로 사용할 수 있다"
 estimated_minutes: 25
 references:
-  - title: "Claude Code SDK"
-    url: "https://docs.anthropic.com/ko/docs/claude-code/sdk"
-  - title: "Learn Claude Code"
-    url: "https://markdown.engineering/learn-claude-code"
+  - title: "Hooks — Anthropic 공식 문서"
+    url: "https://code.claude.com/docs/en/hooks"
+  - title: "Agent SDK 비용·사용량 — Anthropic 공식 문서"
+    url: "https://code.claude.com/docs/en/agent-sdk/cost-tracking"
+  - title: "Agent SDK 관측성 — Anthropic 공식 문서"
+    url: "https://code.claude.com/docs/en/agent-sdk/observability"
 ---
 
-## 에러 처리 전략
+## 실패를 결과로 남기기
 
-Claude Code에서 도구 실행이 실패하면, 오류 내용이 **`tool_result` 메시지에 포함**되어 Claude에게 전달됩니다. Claude는 이 에러 정보를 바탕으로 재시도, 대안 시도, 또는 사용자에게 설명을 제공합니다.
+에이전트 작업에서 실패는 도구가 거부된 경우, 명령이 실패한 경우, 권한 승인이 거부된 경우, 모델·네트워크 제한에 도달한 경우처럼 여러 층에서 생긴다. 실패를 단순 텍스트 로그로만 남기지 말고 작업 ID, 프롬프트 버전, 허용 도구, 종료 상태, 도구 이름, 테스트 결과를 연결해 기록한다. 그래야 재시도와 원인 분석에서 원래의 권한·입력·환경을 재현할 수 있다.
 
-```jsonl
-// 도구 실행 실패 시 tool_result 메시지 예시
-{
-  "type": "tool_result",
-  "tool_use_id": "toolu_abc123",
-  "is_error": true,
-  "content": "Permission denied: /etc/passwd"
-}
-```
+~~~text
+작업 시작 → 도구 제안 → 승인/정책 → 실행 결과
+                               │
+                           실패 발생
+                               │
+          hook·로그·추적 → 사용자에게 안전한 요약 → 재시도 또는 중단
+~~~
 
-이 메커니즘 덕분에 Claude는 오류를 **대화 컨텍스트의 일부**로 처리할 수 있으며, 단순히 실패로 끝내지 않고 적응적으로 대응합니다.
+## hooks는 결정적 후처리에 사용
 
-## PostToolUseFailure 훅
+공식 hooks는 도구 사용과 작업 생명주기의 특정 이벤트에 명령, HTTP, MCP 도구, 프롬프트 기반 처리를 연결할 수 있다. 실패 알림이나 감사 로그를 추가할 때는 hook 자체가 실패해도 본 작업을 어떻게 처리할지 정하고, 네트워크로 보낼 데이터에는 비밀·소스 코드가 포함되지 않도록 필터링한다.
 
-도구 실행 실패 시 자동으로 대응하는 훅을 설정할 수 있습니다.
+| 목적 | 권장 위치 | 확인할 점 |
+| --- | --- | --- |
+| 위험 명령 차단 | 실행 전 정책·권한 | matcher와 경로 범위를 최소화 |
+| 실패 알림 | 실패 후 hook·관측 시스템 | 비밀과 원문 로그 마스킹 |
+| 결과 품질 검사 | 테스트·정적 검사 | 모델 요약과 분리해 실행 |
+| 장기 분석 | OpenTelemetry 등 관측 파이프라인 | 보존 기간·접근 권한 |
 
-```json
-{
-  "hooks": {
-    "PostToolUseFailure": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "logger -t claude-code 'Bash 도구 실패: $CLAUDE_TOOL_INPUT'"
-          }
-        ]
-      },
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "http",
-            "url": "https://monitoring.example.com/claude-errors",
-            "method": "POST"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+## 비용과 사용량 관측
 
-`PostToolUseFailure`는 **차단이 불가능**합니다. 실패 이후 로깅, 알림, 모니터링 등의 부가 작업에 활용합니다.
+Agent SDK의 result 메시지와 공식 비용·사용량 기능은 작업별 비용, 턴, 종료 상태를 관측하는 근거가 된다. 다만 모델·프롬프트·도구 결과·캐시 조건이 다르므로 특정 토큰 수, 비용 비율, 컨텍스트 임계값을 모든 환경에 적용하는 규칙으로 두지 않는다. 팀은 실제 작업 유형별 기준선을 만들고, 예산 한도와 오류 재시도 횟수를 정책으로 결정한다.
 
-## result 메시지 구조
+~~~text
+작업 지표 → 비용·지연·오류율·검증 통과율
+     │
+     ├─ 범위가 큰 프롬프트를 줄이기
+     ├─ 허용 도구를 좁히기
+     └─ 사람 검토가 필요한 작업을 분리하기
+~~~
 
-세션 종료 시 또는 SDK 사용 시 **`result` 메시지**가 생성됩니다. 이 메시지는 전체 실행 요약을 담고 있습니다.
-
-```jsonl
-{
-  "type": "result",
-  "subtype": "success",
-  "cost_usd": 0.0842,
-  "duration_ms": 15420,
-  "duration_api_ms": 12300,
-  "is_error": false,
-  "num_turns": 7,
-  "usage": {
-    "input_tokens": 12450,
-    "output_tokens": 3280,
-    "cache_read_input_tokens": 8900,
-    "cache_creation_input_tokens": 1200
-  }
-}
-```
-
-| 필드 | 설명 |
-|------|------|
-| `subtype` | `success` 또는 `error` |
-| `cost_usd` | 세션 총 비용 (USD) |
-| `duration_ms` | 전체 실행 시간 (밀리초) |
-| `duration_api_ms` | API 호출 시간 (밀리초) |
-| `num_turns` | 대화 턴 수 |
-| `usage.input_tokens` | 입력 토큰 수 |
-| `usage.output_tokens` | 출력 토큰 수 |
-| `usage.cache_read_input_tokens` | 캐시에서 읽은 토큰 수 |
-
-## 컨텍스트 윈도우 분석
-
-`get_context_usage` 제어 요청으로 현재 컨텍스트 윈도우 사용량을 세분화하여 확인할 수 있습니다.
-
-```typescript
-// SDK를 통한 컨텍스트 사용량 조회
-const contextUsage = await sendControlRequest({
-  type: 'get_context_usage'
-});
-
-// 응답 예시
-{
-  "total_tokens": 200000,
-  "used_tokens": 45230,
-  "available_tokens": 154770,
-  "breakdown": {
-    "system_prompt": 8500,
-    "conversation_history": 28000,
-    "tool_results": 6200,
-    "pending_output": 2530
-  }
-}
-```
-
-컨텍스트 윈도우가 80% 이상 채워지면 자동 압축(compact)이 트리거되어 오래된 대화 내용이 요약으로 대체됩니다.
-
-## 분석 수집 활용
-
-비용과 성능 데이터를 활용한 최적화 전략:
-
-| 분석 지표 | 활용 방법 |
-|-----------|-----------|
-| `cost_usd` | 세션별 비용 추적, 예산 관리 |
-| `duration_ms` | 응답 시간 모니터링, SLA 관리 |
-| `cache_read_input_tokens` | 캐시 효율성 측정 |
-| `num_turns` | 대화 복잡도 분석 |
+관측 데이터는 개선을 위한 것이지, 위험한 자동 변경을 정당화하는 근거가 아니다. 오류가 발생하거나 지표가 예상 밖으로 증가하면, 우선 권한을 줄이고 입력·MCP 서버·세션 재개 경로를 검토한 뒤에 재시도한다.
 
 ---
 

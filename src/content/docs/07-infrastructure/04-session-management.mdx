@@ -6,13 +6,11 @@ sidebar:
 learning_objectives:
   - "세션 트랜스크립트의 저장 형식과 위치를 설명할 수 있다"
   - "--resume 옵션으로 이전 대화를 재개하는 방법을 안다"
-  - "SDK의 세션 관리 API(listSessions, forkSession 등)를 활용할 수 있다"
+  - "Agent SDK의 세션 API(listSessions, forkSession 등)를 활용할 수 있다"
 estimated_minutes: 20
 references:
-  - title: "Claude Code SDK"
-    url: "https://docs.anthropic.com/ko/docs/claude-code/sdk"
-  - title: "Learn Claude Code"
-    url: "https://markdown.engineering/learn-claude-code"
+  - title: "Agent SDK 세션 — Anthropic 공식 문서"
+    url: "https://code.claude.com/docs/en/agent-sdk/sessions"
 ---
 
 ## JSON 트랜스크립트
@@ -67,7 +65,7 @@ claude --resume
 TypeScript SDK를 통해 프로그래매틱으로 세션을 관리할 수 있습니다.
 
 ```typescript
-import { listSessions, getSessionMessages, forkSession, renameSession, tagSession } from '@anthropic-ai/claude-code';
+import { listSessions, getSessionMessages, forkSession, renameSession, tagSession } from '@anthropic-ai/claude-agent-sdk';
 
 // 모든 세션 목록 조회
 const sessions = await listSessions();

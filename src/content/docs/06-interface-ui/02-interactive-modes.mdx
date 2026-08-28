@@ -145,15 +145,9 @@ claude --print --output-format stream-json "코드 작성해줘"
 `stream-json` 형식은 웹 인터페이스나 IDE 플러그인이 Claude Code를 백엔드로 사용할 때 실시간 스트리밍 UI를 구현하기 위해 설계되었습니다.
 </Aside>
 
-## 환경 변수로 모드 제어
+## 원격 세션 제어
 
-### CLAUDE_CODE_REMOTE=1
-
-```bash
-CLAUDE_CODE_REMOTE=1 claude
-```
-
-원격/서버 환경임을 알립니다. Git 컨텍스트 수집을 건너뛰고 터미널 UI를 최소화합니다. SSH를 통한 원격 개발이나 컨테이너 환경에서 사용합니다.
+Remote Control은 환경 변수로 동작 모드를 바꾸는 기능이 아닙니다. 다른 기기에서 로컬 세션을 이어서 제어하려면 공식 문서의 `claude --remote-control`, `claude remote-control`, 또는 대화형 `/remote-control` 흐름을 사용합니다. 이 기능은 연구 미리보기이며, 로컬 파일·도구·MCP 권한이 그대로 적용됨을 이해하고 시작해야 합니다.
 
 ### CLAUDE_CODE_SIMPLE=1
 

@@ -1,145 +1,73 @@
 ---
-title: "제어 프로토콜"
-description: "호스트와 CLI 간 SDKControlRequest/Response 메시지 구조와 권한 요청 핸들러를 학습합니다."
+title: "Agent SDK의 승인과 세션 제어"
+description: "공개 SDK 옵션으로 도구 승인, 중단, 세션 계속·재개·분기를 제어하는 방법을 학습합니다."
 sidebar:
   order: 2
 learning_objectives:
-  - "SDKControlRequest의 주요 작업 유형(initialize, interrupt, set_model 등)을 설명할 수 있다"
-  - "SDKControlResponse로 반환되는 기능 목록과 에이전트 정의 구조를 이해한다"
-  - "can_use_tool 권한 요청 핸들러의 동작 방식을 안다"
+  - "도구 승인과 사용자 입력이 에이전트 루프 안에서 처리되는 방식을 설명할 수 있다"
+  - "continue, resume, forkSession의 쓰임을 구분할 수 있다"
+  - "세션 기록과 파일 변경 기록이 서로 다름을 설명할 수 있다"
 estimated_minutes: 25
 references:
-  - title: "Claude Code SDK"
-    url: "https://docs.anthropic.com/ko/docs/claude-code/sdk"
-  - title: "Learn Claude Code"
-    url: "https://markdown.engineering/learn-claude-code"
+  - title: "승인과 사용자 입력 처리 — Anthropic 공식 문서"
+    url: "https://code.claude.com/docs/en/agent-sdk/user-input"
+  - title: "Agent SDK 세션 — Anthropic 공식 문서"
+    url: "https://code.claude.com/docs/en/agent-sdk/sessions"
+  - title: "Agent SDK 권한 — Anthropic 공식 문서"
+    url: "https://code.claude.com/docs/en/agent-sdk/permissions"
 ---
 
-## 제어 프로토콜 개요
+## 추정한 제어 메시지 대신 공개 옵션 사용하기
 
-제어 프로토콜은 **호스트 애플리케이션과 Claude Code CLI 간의 구조화된 통신 방식**입니다. 일반 사용자 메시지와 별도로, 세션 초기화, 모델 변경, 권한 처리 등 시스템 수준 작업을 처리합니다.
+Agent SDK는 호스트가 비공개 JSON 메시지를 직접 만들어 CLI에 보내는 방식으로 문서화되어 있지 않다. 공식 SDK는 query() 옵션, 권한 콜백, 스트리밍 메시지로 에이전트의 행동을 제어한다. 따라서 initialize, set_model, get_context_usage 같은 임의의 제어 메시지나 응답 스키마를 애플리케이션 계약으로 삼아서는 안 된다.
 
-```
-Host → CLI: SDKControlRequest  (제어 명령)
-CLI  → Host: SDKControlResponse (제어 응답)
-Host → CLI: SDKUserMessage     (사용자 메시지)
-CLI  → Host: can_use_tool      (권한 요청)
-```
+~~~text
+애플리케이션 → prompt + Options → Agent SDK
+                                    │
+                     도구 제안 ── 권한 정책·사용자 승인
+                                    │
+                     메시지 스트림 ← 도구 결과·최종 result
+~~~
 
-## SDKControlRequest (Host → CLI)
+승인 요청과 AskUserQuestion 같은 상호작용은 하나의 query 호출 안에서 진행된다. 애플리케이션은 승인 정책을 구성할 때 명령어·경로·MCP 서버별로 최소 권한을 적용하고, 사용자가 이해할 수 있는 승인 UI와 거부 경로를 제공해야 한다. 자동 승인 규칙은 신뢰하는 고정 작업공간의 읽기 전용 도구부터 좁게 추가하는 것이 안전하다.
 
-호스트에서 CLI로 전송하는 제어 요청입니다.
+## 세션의 세 가지 선택
 
-| 작업 (subtype) | 방향 | 설명 |
-|----------------|------|------|
-| `initialize` | Host → CLI | 세션 초기화, 시스템 프롬프트 설정 |
-| `interrupt` | Host → CLI | 현재 실행 중인 작업 중단 |
-| `set_model` | Host → CLI | 사용 모델 변경 |
-| `set_permission_mode` | Host → CLI | 권한 모드 변경 |
-| `mcp_status` | Host → CLI | MCP 서버 상태 조회 |
-| `mcp_set_servers` | Host → CLI | MCP 서버 목록 동적 설정 |
-| `get_context_usage` | Host → CLI | 컨텍스트 윈도우 사용량 조회 |
-| `rewind_files` | Host → CLI | 파일 변경 사항 롤백 |
+세션은 프롬프트, 도구 호출, 도구 결과, 응답으로 이루어진 대화 기록이며 SDK가 기본적으로 디스크에 저장한다. 세션은 **대화 맥락**을 보존할 뿐 파일 시스템의 스냅샷은 아니다. 파일 변경을 되돌리려면 별도의 파일 체크포인팅 또는 버전 관리 절차가 필요하다.
 
-```jsonl
-// initialize 요청 예시
-{
-  "type": "control",
-  "subtype": "initialize",
-  "systemPrompt": "당신은 TypeScript 전문가입니다.",
-  "appendSystemPrompt": "항상 한국어로 응답하세요.",
-  "permissionMode": "auto-edit"
-}
+| 목표 | TypeScript 옵션 | 의미 |
+| --- | --- | --- |
+| 같은 디렉터리의 가장 최근 대화 이어가기 | continue: true | 세션 ID를 앱이 관리하지 않아도 된다 |
+| 특정 과거 대화로 돌아가기 | resume: sessionId | 다중 사용자·다중 작업에 적합하다 |
+| 대화 이력의 대안을 탐색하기 | resume + forkSession: true | 원본 이력은 유지하고 새 세션을 만든다 |
+| 대화 기록을 저장하지 않는 단발 작업 | persistSession: false | TypeScript에서 호출 기간 동안만 메모리에 둔다 |
 
-// set_model 요청 예시
-{
-  "type": "control",
-  "subtype": "set_model",
-  "model": "claude-opus-4-5"
-}
-```
+## 세션 ID 캡처와 재개
 
-## SDKControlResponse (CLI → Host)
+최종 result 메시지에는 session_id가 포함된다. 애플리케이션은 이를 사용자·작업 식별자와 함께 안전한 저장소에 보관한 뒤, 후속 작업에 resume 옵션으로 전달할 수 있다. 한 디렉터리에서 대화 하나만 관리한다면 continue: true가 더 단순하다.
 
-CLI에서 호스트로 반환하는 제어 응답입니다.
+~~~typescript
+import { query } from "@anthropic-ai/claude-agent-sdk";
 
-```jsonl
-// initialize 응답 예시
-{
-  "type": "control_response",
-  "subtype": "initialize",
-  "capabilities": ["streaming", "tools", "vision", "mcp"],
-  "model": "claude-sonnet-4-5",
-  "agents": [
-    {
-      "name": "code-reviewer",
-      "description": "코드 품질 리뷰 에이전트",
-      "model": "claude-haiku-4-5"
-    }
-  ],
-  "account": {
-    "email": "user@example.com",
-    "tier": "pro"
-  },
-  "apiProvider": "firstParty"
-}
-```
+let sessionId: string | undefined;
 
-| 필드 | 설명 |
-|------|------|
-| `capabilities` | 지원하는 기능 목록 |
-| `model` | 현재 사용 중인 모델 |
-| `agents` | 정의된 커스텀 에이전트 목록 |
-| `account` | 계정 정보 |
-| `apiProvider` | 현재 API 프로바이더 |
-
-## can_use_tool (CLI → Host)
-
-Claude가 도구를 실행하기 전에 호스트에 **권한을 요청**하는 메시지입니다.
-
-```jsonl
-// CLI → Host: 권한 요청
-{
-  "type": "can_use_tool",
-  "tool": "Bash",
-  "input": { "command": "rm -rf ./dist" },
-  "request_id": "req-abc123"
-}
-
-// Host → CLI: 권한 응답
-{
-  "type": "tool_permission_response",
-  "request_id": "req-abc123",
-  "granted": true,
-  "remember": false
-}
-```
-
-호스트는 이 메시지를 처리하여 사용자에게 확인 UI를 표시하거나, 정책 기반으로 자동 승인/거부할 수 있습니다.
-
-## SDKUserMessage
-
-호스트에서 CLI로 전송하는 **사용자 메시지**입니다.
-
-```jsonl
-// 기본 사용자 메시지
-{
-  "type": "user",
-  "message": {
-    "role": "user",
-    "content": "인증 모듈을 리팩토링해 주세요"
+for await (const message of query({
+  prompt: "auth 모듈을 분석해 주세요.",
+  options: { allowedTools: ["Read", "Glob", "Grep"] }
+})) {
+  if (message.type === "result") {
+    sessionId = message.session_id;
   }
 }
 
-// 도구 응답에 연결된 메시지
-{
-  "type": "user",
-  "message": {
-    "role": "user",
-    "content": "계속 진행해 주세요"
-  },
-  "parent_tool_use_id": "toolu_xyz789"
+for await (const message of query({
+  prompt: "앞선 분석에서 제안한 첫 번째 수정만 구현해 주세요.",
+  options: { resume: sessionId, allowedTools: ["Read", "Edit", "Write"] }
+})) {
+  if (message.type === "result" && message.subtype === "success") {
+    console.log(message.result);
+  }
 }
-```
+~~~
 
-`parent_tool_use_id`를 사용하면 특정 도구 호출의 결과에 이어지는 메시지를 전송할 수 있어 복잡한 멀티턴 대화 흐름을 정밀하게 제어할 수 있습니다.
+세션 ID는 대화 기록에 접근하는 키이므로 로그에 무분별하게 노출하지 않는다. 프로세스 재시작이나 다른 호스트로 옮기는 경우에는 공식 SessionStore 방법 또는 애플리케이션의 명시적인 결과 저장을 검토한다. 같은 대화 이력을 분기해도 작업 디렉터리가 공유되면 파일 변경은 서로 보일 수 있다는 점도 반드시 함께 설계해야 한다.

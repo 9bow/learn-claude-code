@@ -60,7 +60,6 @@ Claude Code는 **세 가지 계층**의 설정 파일을 사용합니다. 각 �
 | 변수 | 설명 |
 |------|------|
 | `ANTHROPIC_API_KEY` | Anthropic API 인증 키 |
-| `CLAUDE_CODE_REMOTE` | `1`로 설정 시 원격 실행 모드 활성화, Git 컨텍스트 생략 |
 | `CLAUDE_CODE_SIMPLE` | `1`로 설정 시 단순화 모드, 복잡한 UI 비활성화 |
 | `CLAUDE_CODE_DISABLE_CLAUDE_MDS` | `1`로 설정 시 CLAUDE.md 파일 로딩 비활성화 |
 | `CLAUDE_ENV_FILE` | 커스텀 `.env` 파일 경로 지정 |
@@ -68,9 +67,10 @@ Claude Code는 **세 가지 계층**의 설정 파일을 사용합니다. 각 �
 ```bash
 # 환경 변수 설정 예시
 export ANTHROPIC_API_KEY="sk-ant-..."
-export CLAUDE_CODE_REMOTE=1
 export CLAUDE_ENV_FILE="/path/to/my/.env"
 ```
+
+Remote Control은 임의 환경 변수로 활성화하는 설정이 아닙니다. 원격 세션 제어는 공식 Remote Control 문서의 `claude --remote-control` 또는 대화형 명령 흐름을 사용하며, 연구 미리보기의 지원 조건을 먼저 확인해야 합니다.
 
 ## 설정 병합 규칙
 

@@ -85,13 +85,14 @@ Current version: v16.20.0
 
 | 환경 변수 | 기본값 | 설명 |
 |----------|--------|------|
-| `CLAUDE_CODE_REMOTE` | `""` | 원격 실행 모드 활성화 |
 | `CLAUDE_CODE_SIMPLE` | `""` | Bash/Read/Edit만 사용하는 최소 모드 |
 | `ANTHROPIC_API_KEY` | 필수 | Anthropic API 인증 키 |
 | `CLAUDE_CODE_MAX_OUTPUT` | `32000` | 최대 출력 문자 수 |
 | `DISABLE_AUTOUPDATER` | `""` | 자동 업데이트 비활성화 |
 
 `CLAUDE_CODE_SIMPLE=1` 로 설정하면 파일·셸 도구만 남기고 나머지를 비활성화합니다. CI 환경이나 제한된 컨텍스트에서 유용합니다.
+
+Remote Control은 환경 변수로 켜는 실행 모드가 아니라, 공식 문서에 안내된 CLI·슬래시 명령으로 로컬 세션을 다른 기기에서 제어하는 연구 미리보기 기능입니다. 원격 제어가 필요하면 기능의 버전 요구·로그인·작업공간 신뢰 조건을 공식 문서에서 확인합니다.
 
 ### 4단계: MCP 서버 연결
 
